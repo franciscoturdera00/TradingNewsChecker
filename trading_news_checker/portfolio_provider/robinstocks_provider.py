@@ -16,7 +16,7 @@ def _disable_trading():
             except Exception:
                 pass
 
-class RobinhoodProvider(BaseProvider):
+class RobinStocksProvider(BaseProvider):
     def __init__(self):
         self.login()
 
