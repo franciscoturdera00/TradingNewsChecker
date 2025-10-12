@@ -31,7 +31,7 @@ class EmailReporter(BaseReporter):
         except ValueError:
             raise ValueError("EMAIL_PORT must be a valid integer.")
 
-        subject = subject or f"Trading News Report - {datetime.now().strftime('%Y-%m-%d')}"
+        subject = subject or f"Daily Trading Report - {datetime.now().strftime('%Y-%m-%d')}"
         sender = email_username
         recipient = recipient_email
 

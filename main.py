@@ -34,7 +34,7 @@ def main():
 
     if not positions:
         html = build_portfolio_html_report([], {})
-        reporter.send_report(html, subject="Daily Portfolio Update", is_html=True, plain_fallback="No positions found.")
+        reporter.send_report(html, is_html=True, plain_fallback="No positions found.")
         return
 
     # Build {ticker: [{title, link}, ...]} with RSS fetcher
@@ -50,7 +50,7 @@ def main():
     # Render & send
     html = build_portfolio_html_report(positions, analysis)
     text = build_plaintext_fallback(positions, analysis)
-    reporter.send_report(html, subject="Daily Portfolio Update", is_html=True, plain_fallback=text)
+    reporter.send_report(html, is_html=True, plain_fallback=text)
 
 if __name__ == "__main__":
     main()

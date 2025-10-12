@@ -11,40 +11,10 @@ class SnapTradeProvider:
         self.user_id = os.environ["SNAPTRADE_USER_ID"]
 
         self.snaptrade = SnapTrade(client_id=self.client_id, consumer_key=self.consumer_key)
-        self.user_secret = self._get_or_create_secret()
+        self.user_secret = os.getenv("SNAPTRADE_USER_SECRET")
 
-    # ---------- secret mgmt ----------
-    def _get_or_create_secret(self) -> str:
-        s = self._load_secret()
-        if s:
-            return s
-        try:
-            resp = self.snaptrade.authentication.register_snap_trade_user(body={"userId": self.user_id})
-            secret = (resp.body or {}).get("userSecret")
-            if not secret:
-                raise RuntimeError("No userSecret in register response")
-            self._save_secret(secret)
-            return secret
-        except ApiException as e:
-            if getattr(e, "status", None) == 400:  # user exists → rotate to get a secret
-                resp = self.snaptrade.authentication.reset_snap_trade_user_secret(
-                    user_id= self.user_id
-                )
-                secret = (resp.body or {}).get("userSecret")
-                if not secret:
-                    raise RuntimeError("No userSecret in reset response")
-                self._save_secret(secret)
-                return secret
-            raise
-
-    def _load_secret(self):
-        try:
-            return json.loads(USER_SECRET_FILE.read_text())["user_secret"]
-        except FileNotFoundError:
-            return None
-
-    def _save_secret(self, secret: str):
-        USER_SECRET_FILE.write_text(json.dumps({"user_secret": secret}))
+        if not any([self.client_id, self.consumer_key, self.user_id, self.user_secret]):
+            raise ValueError("SnapTrade environment variables are not set.")
 
     # ---------- data ----------
     def get_positions(self):
@@ -72,6 +42,5 @@ class SnapTradeProvider:
             # annotate with account id for traceability
             for p in pos:
                 p["account_id"] = account_id # type: ignore | We are adding a key
-                print(p)
             all_positions.extend(pos)
         return all_positions
