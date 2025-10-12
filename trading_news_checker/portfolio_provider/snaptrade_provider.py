@@ -51,7 +51,10 @@ class SnapTradeProvider:
         accounts = self.snaptrade.account_information.list_user_accounts(
             user_id =  self.user_id, 
             user_secret= self.user_secret
-        ).body or []
+        ).body
+
+        if accounts is None or not isinstance(accounts, list):
+            return []
 
         all_positions = []
         for acct in accounts:
@@ -62,9 +65,13 @@ class SnapTradeProvider:
                 account_id=account_id,
                 user_id=self.user_id,
                 user_secret=self.user_secret,
-            ).body or []
+            ).body
+
+            if pos is None or not isinstance(pos, list):
+                continue
             # annotate with account id for traceability
             for p in pos:
-                p["account_id"] = account_id
+                p["account_id"] = account_id # type: ignore | We are adding a key
+                print(p)
             all_positions.extend(pos)
         return all_positions
