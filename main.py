@@ -2,6 +2,7 @@ from portfolio_provider import SnapTradeProvider
 from news_fetcher.google_news_fetcher import GoogleNewsRSSFetcher as NewsFetcher
 from analysis.gpt_analyzer import GptAnalyzer
 from reporting.email_reporter import EmailReporter
+from reporting.notion_reporter import NotionReporter
 from reporting.html_report_builder import (
     build_portfolio_html_report,
     build_plaintext_fallback,
@@ -26,6 +27,14 @@ def main():
     news = NewsFetcher()
     analyzer = GptAnalyzer()  # e.g., gpt-4o-mini
     reporter = EmailReporter()
+
+    # Optional Notion reporter
+    notion_reporter = None
+    try:
+        notion_reporter = NotionReporter()
+        logger.info("NotionReporter initialized")
+    except Exception:
+        logger.debug("NotionReporter not configured or failed to initialize; continuing without it")
 
     # Get & normalize positions
     try:
@@ -90,6 +99,14 @@ def main():
         logger.info("Report sent successfully")
     except Exception:
         logger.exception("Failed to send report")
+
+    # Save to Notion if configured
+    if notion_reporter:
+        try:
+            subject = f"Daily Trading Report - {__import__('datetime').datetime.now().date()}"
+            notion_reporter.save_report(subject, html, plaintext=text, metadata={"tickers": sorted(list(tickers))})
+        except Exception:
+            logger.exception("Failed to save report to Notion")
 
 
 if __name__ == "__main__":
