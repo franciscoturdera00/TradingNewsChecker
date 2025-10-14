@@ -1,6 +1,12 @@
 from openai import OpenAI
 import os, json
 from typing import Dict, List
+import time
+
+from logging_config import get_logger
+
+logger = get_logger(__name__)
+
 
 class GptAnalyzer:
     """
@@ -58,21 +64,29 @@ class GptAnalyzer:
             "For EVERY ticker, do BOTH:\n"
             "  1) Summarize the likely impact in 3-5 concise bullets\n"
             "  2) Provide overall sentiment as one of {positive|neutral|negative} with 1-2 brief reasons.\n\n"
-            "Return ONLY valid minified JSON (no prose, no code fences) with this shape:\n"
+            "Return ONLY valid minified JSON (no prose, no code fences, no other text) with this shape:\n"
             '{\"results\":[{\"symbol\":\"<TICKER>\",\"summary_bullets\":[\"...\"],'
             '\"sentiment\":\"positive|neutral|negative\",\"reasons\":[\"...\"]}...]}\n\n'
             "SECTIONS:\n" + "\n".join(parts)
         )
 
-        resp = self.client.responses.create(
-            model=self.model,
-            input=prompt,
-            temperature=0.2,
-            max_output_tokens=800,  # keep bounded
-        )
+        try:
+            logger.info("Sending GPT analysis request for %d sections", len(sections))
+            resp = self.client.responses.create(
+                model=self.model,
+                input=prompt,
+                temperature=0.2,
+                max_output_tokens=800,  # keep bounded
+            )
 
-        raw = resp.output_text or ""
-        data = self._safe_json_parse(raw)
+            # Simpler: assume SDK provides final text in `output_text`.
+            raw = getattr(resp, "output_text", "") or ""
+            logger.debug("Raw GPT response length=%d", len(raw))
+            logger.debug("Raw GPT response: %s", raw)
+            data = json.loads(raw)
+        except Exception:
+            logger.exception("GPT request failed")
+            return {}
 
         # Normalize to dict keyed by symbol
         out: Dict[str, Dict] = {}
@@ -86,20 +100,3 @@ class GptAnalyzer:
                 "reasons": row.get("reasons", []),
             }
         return out
-
-    @staticmethod
-    def _safe_json_parse(s: str) -> Dict:
-        """
-        Robust JSON extraction: handles accidental prose by trimming to the first '{' and last '}'.
-        """
-        try:
-            return json.loads(s)
-        except Exception:
-            try:
-                start = s.find("{")
-                end = s.rfind("}")
-                if start != -1 and end != -1 and end > start:
-                    return json.loads(s[start:end+1])
-            except Exception:
-                pass
-        return {"results": []}
