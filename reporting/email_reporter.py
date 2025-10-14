@@ -5,9 +5,13 @@ from datetime import datetime
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
-from .base_reporter import BaseReporter
+from .base_reporter import BaseReporter, logger as base_logger
+from logging_config import get_logger
+
+logger = get_logger(__name__)
 
 load_dotenv()
+
 
 class EmailReporter(BaseReporter):
     """
@@ -24,6 +28,7 @@ class EmailReporter(BaseReporter):
         recipient_email = os.getenv("RECIPIENT_EMAIL", "")
 
         if any(x == "" for x in [email_server, email_port, email_username, email_password, recipient_email]):
+            logger.error("Email configuration incomplete: server=%s recipient=%s", email_server, recipient_email)
             raise ValueError("Email configuration is incomplete. Please check environment variables.")
 
         try:
@@ -53,7 +58,13 @@ class EmailReporter(BaseReporter):
         msg["To"] = recipient
 
         # Send
-        with smtplib.SMTP(email_server, email_port) as server:
-            server.starttls()
-            server.login(email_username, email_password)
-            server.sendmail(sender, [recipient], msg.as_string())
+        try:
+            logger.info("Sending report email to %s (subject=%s)", recipient, subject)
+            with smtplib.SMTP(email_server, email_port) as server:
+                server.starttls()
+                server.login(email_username, email_password)
+                server.sendmail(sender, [recipient], msg.as_string())
+            logger.info("Email sent successfully to %s", recipient)
+        except Exception:
+            logger.exception("Failed to send email to %s", recipient)
+            raise

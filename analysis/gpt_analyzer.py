@@ -2,6 +2,11 @@ from openai import OpenAI
 import os, json
 from typing import Dict, List
 
+from logging_config import get_logger
+
+logger = get_logger(__name__)
+
+
 class GptAnalyzer:
     """
     Expects:
@@ -64,15 +69,20 @@ class GptAnalyzer:
             "SECTIONS:\n" + "\n".join(parts)
         )
 
-        resp = self.client.responses.create(
-            model=self.model,
-            input=prompt,
-            temperature=0.2,
-            max_output_tokens=800,  # keep bounded
-        )
-
-        raw = resp.output_text or ""
-        data = self._safe_json_parse(raw)
+        try:
+            logger.info("Sending GPT analysis request for %d sections", len(sections))
+            resp = self.client.responses.create(
+                model=self.model,
+                input=prompt,
+                temperature=0.2,
+                max_output_tokens=800,  # keep bounded
+            )
+            raw = resp.output_text or ""
+            logger.debug("Raw GPT response length=%d", len(raw or ""))
+            data = self._safe_json_parse(raw)
+        except Exception:
+            logger.exception("GPT request failed")
+            return {}
 
         # Normalize to dict keyed by symbol
         out: Dict[str, Dict] = {}
@@ -99,7 +109,9 @@ class GptAnalyzer:
                 start = s.find("{")
                 end = s.rfind("}")
                 if start != -1 and end != -1 and end > start:
-                    return json.loads(s[start:end+1])
+                    snippet = s[start:end+1]
+                    logger.debug("Attempting trimmed JSON parse; length=%d", len(snippet))
+                    return json.loads(snippet)
             except Exception:
-                pass
+                logger.exception("Failed to parse GPT JSON response")
         return {"results": []}

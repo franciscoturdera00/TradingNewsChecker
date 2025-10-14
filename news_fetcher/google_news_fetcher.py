@@ -3,6 +3,12 @@ import xml.etree.ElementTree as ET
 from urllib.parse import urlencode
 from typing import List, Dict
 
+from logging_config import get_logger
+
+
+logger = get_logger(__name__)
+
+
 class GoogleNewsRSSFetcher:
     BASE = "https://news.google.com/rss/search"
 
@@ -25,9 +31,12 @@ class GoogleNewsRSSFetcher:
         query = " OR ".join(terms)
 
         try:
-            resp = requests.get(self._url(query), timeout=self.timeout)
+            url = self._url(query)
+            logger.debug("Requesting Google News RSS for %s (query=%s)", symbol, query)
+            resp = requests.get(url, timeout=self.timeout)
             resp.raise_for_status()
-        except requests.RequestException:
+        except requests.RequestException as e:
+            logger.exception("Failed to fetch RSS for %s: %s", symbol, e)
             return []
 
         items: List[Dict] = []
@@ -62,8 +71,10 @@ class GoogleNewsRSSFetcher:
                         break
 
         except ET.ParseError:
+            logger.exception("Failed to parse RSS XML for %s", symbol)
             return []
 
+        logger.info("Parsed %d news items for %s", len(items), symbol)
         return items
 
     def get_news_for_tickers(self, tickers: Dict[str, str] | List[str], max_results: int = 12) -> Dict[str, List[Dict]]:
