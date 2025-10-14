@@ -61,32 +61,43 @@ class GptAnalyzer:
 
         prompt = (
             "You are a financial news analyst. Treat each ticker independently.\n"
+            "Your task: ONLY return valid JSON. DO NOT include explanations, markdown, or any text outside the JSON.\n"
+            "The JSON **must strictly follow** this schema (NEVER return anything other than this JSON schema):\n"
+            '{"results":[{"symbol":"<TICKER>","summary_bullets":["..."],'
+            '"sentiment":"positive|neutral|negative","reasons":["..."]}]}\n\n'
             "For EVERY ticker, do BOTH:\n"
             "  1) Summarize the likely impact in 3-5 concise bullets\n"
             "  2) Provide overall sentiment as one of {positive|neutral|negative} with 1-2 brief reasons.\n\n"
-            "Return ONLY valid minified JSON (no prose, no code fences, no other text) with this shape:\n"
-            '{\"results\":[{\"symbol\":\"<TICKER>\",\"summary_bullets\":[\"...\"],'
-            '\"sentiment\":\"positive|neutral|negative\",\"reasons\":[\"...\"]}...]}\n\n'
+            "Return ONLY valid minified JSON (no code fences, no commentary, no explanations).\n\n"
             "SECTIONS:\n" + "\n".join(parts)
         )
 
         try:
             logger.info("Sending GPT analysis request for %d sections", len(sections))
             resp = self.client.responses.create(
-                model=self.model,
-                input=prompt,
-                temperature=0.2,
-                max_output_tokens=800,  # keep bounded
+            model=self.model,
+            input=prompt,
+            temperature=0.2,
+            max_output_tokens=800,  # keep bounded
             )
 
-            # Simpler: assume SDK provides final text in `output_text`.
-            raw = getattr(resp, "output_text", "") or ""
+            # Use the SDK JSON mode output directly if supported
+            raw = getattr(resp, "output_text", "") or getattr(resp, "output_json", "") or ""
             logger.debug("Raw GPT response length=%d", len(raw))
-            logger.debug("Raw GPT response: %s", raw)
-            data = json.loads(raw)
+            logger.debug("Raw GPT response: %s", raw.strip())
+
+            # Parse JSON strictly
+            data = json.loads(raw.strip())
+
+        except json.JSONDecodeError as e:
+            logger.error("JSON parsing failed: %s", e)
+            logger.debug("Fallback raw response: %s", raw)
+            data = {}
+
         except Exception:
             logger.exception("GPT request failed")
-            return {}
+            data = {}
+
 
         # Normalize to dict keyed by symbol
         out: Dict[str, Dict] = {}

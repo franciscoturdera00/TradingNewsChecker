@@ -1,5 +1,6 @@
 from portfolio_provider import SnapTradeProvider
 from news_fetcher.google_news_fetcher import GoogleNewsRSSFetcher as NewsFetcher
+from news_fetcher.reddit_fetcher import RedditFetcher
 from analysis.gpt_analyzer import GptAnalyzer
 from reporting.email_reporter import EmailReporter
 from reporting.html_report_builder import (
@@ -24,6 +25,7 @@ def main():
         raise
 
     news = NewsFetcher()
+    reddit = RedditFetcher()
     analyzer = GptAnalyzer()  # e.g., gpt-4o-mini
     reporter = EmailReporter()
 
@@ -65,14 +67,35 @@ def main():
     # Build {ticker: [{title, link}, ...]} with RSS fetcher
     items = {}
     for t in sorted(tickers):
+        combined = []
         try:
-            arts = news.get_news(t, max_results=12)
-            logger.info("Fetched news for %s: %d items", t, len(arts or []))
+            arts = news.get_news(t, max_results=8)
+            logger.info("Fetched news for %s (google): %d items", t, len(arts or []))
+            combined.extend(arts)
         except Exception:
-            logger.exception("Error fetching news for %s", t)
-            arts = []
-        if arts:
-            items[t] = arts
+            logger.exception("Error fetching Google News for %s", t)
+
+        try:
+            rarts = reddit.get_news(t, max_results=6)
+            logger.info("Fetched reddit for %s: %d items", t, len(rarts or []))
+            logger.debug("Reddit items: %s", rarts)
+            combined.extend(rarts)
+        except Exception:
+            logger.exception("Error fetching reddit for %s", t)
+
+        if combined:
+            # dedupe by title/link
+            seen = set()
+            out = []
+            for a in combined:
+                key = (a.get("title"), a.get("link"))
+                if key in seen:
+                    continue
+                seen.add(key)
+                out.append(a)
+                if len(out) >= 12:
+                    break
+            items[t] = out
 
     # Batch analysis
     try:
