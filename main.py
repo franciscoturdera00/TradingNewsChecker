@@ -3,6 +3,7 @@ from news_fetcher.google_news_fetcher import GoogleNewsRSSFetcher as NewsFetcher
 from analysis.gpt_analyzer import GptAnalyzer
 from reporting.email_reporter import EmailReporter
 from reporting.notion_reporter import NotionReporter
+from datetime import datetime
 from reporting.html_report_builder import (
     build_portfolio_html_report,
     build_plaintext_fallback,
@@ -103,8 +104,7 @@ def main():
     # Save to Notion if configured
     if notion_reporter:
         try:
-            subject = f"Daily Trading Report - {__import__('datetime').datetime.now().date()}"
-            notion_reporter.save_report(subject, html, plaintext=text, metadata={"tickers": sorted(list(tickers))})
+            notion_reporter.save_report(tickers=sorted(list(tickers)), analysis=analysis)
         except Exception:
             logger.exception("Failed to save report to Notion")
 
