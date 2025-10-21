@@ -75,13 +75,14 @@ def main():
         except Exception:
             logger.exception("Error fetching Google News for %s", t)
 
-        try:
-            rarts = reddit.get_news(t, max_results=6)
-            logger.info("Fetched reddit for %s: %d items", t, len(rarts or []))
-            logger.debug("Reddit items: %s", rarts)
-            combined.extend(rarts)
-        except Exception:
-            logger.exception("Error fetching reddit for %s", t)
+        #TODO: Reddit bounces requests - fix it
+        # try:
+        #     rarts = reddit.get_news(t, max_results=6)
+        #     logger.info("Fetched reddit for %s: %d items", t, len(rarts or []))
+        #     logger.debug("Reddit items: %s", rarts)
+        #     combined.extend(rarts)
+        # except Exception:
+        #     logger.exception("Error fetching reddit for %s", t)
 
         if combined:
             # dedupe by title/link

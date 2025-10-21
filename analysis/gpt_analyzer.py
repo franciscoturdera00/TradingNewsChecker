@@ -52,6 +52,8 @@ class GptAnalyzer:
                 })
         if not sections:
             return {}
+        logger.debug("Prepared sections for GPT analysis:\n %s", sections)
+
         # Build compact instruction (JSON-only response)
         parts = []
         for s in sections:
@@ -71,6 +73,8 @@ class GptAnalyzer:
             "Return ONLY valid minified JSON (no code fences, no commentary, no explanations).\n\n"
             "SECTIONS:\n" + "\n".join(parts)
         )
+
+        logger.debug("Constructed GPT prompt %s", prompt)
 
         try:
             logger.info("Sending GPT analysis request for %d sections", len(sections))
