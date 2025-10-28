@@ -61,17 +61,26 @@ class GptAnalyzer:
             extra = ("\nTop sources:\n" + "\n".join(f"- {u}" for u in s["links"])) if s["links"] else ""
             parts.append(f"### Ticker: {s['symbol']}\nHeadlines:\n{hlines}{extra}\n")
 
-        prompt = (
+        prompt = (f"""
             "You are a financial news analyst. Treat each ticker independently.\n"
             "Your task: ONLY return valid JSON. DO NOT include explanations, markdown, or any text outside the JSON.\n"
             "The JSON **must strictly follow** this schema (NEVER return anything other than this JSON schema):\n"
-            '{"results":[{"symbol":"<TICKER>","summary_bullets":["..."],'
-            '"sentiment":"positive|neutral|negative","reasons":["..."]}]}\n\n'
+            "Return ONLY valid JSON exactly matching this structure:
+            {{
+            "results": [
+                {{
+                "symbol": "TICKER",
+                "summary_bullets": ["..."],
+                "sentiment": "positive|neutral|negative",
+                "reasons": ["..."]
+                }}
+            ]
+            }}
             "For EVERY ticker, do BOTH:\n"
             "  1) Summarize the likely impact in 3-5 concise bullets\n"
-            "  2) Provide overall sentiment as one of {positive|neutral|negative} with 1-2 brief reasons.\n\n"
+            "  2) Provide overall sentiment as one of {{positive|neutral|negative}} with 1-2 brief reasons.\n\n"
             "Return ONLY valid minified JSON (no code fences, no commentary, no explanations).\n\n"
-            "SECTIONS:\n" + "\n".join(parts)
+            "SECTIONS:\n {'\n'.join(parts)}""".strip()
         )
 
         logger.debug("Constructed GPT prompt %s", prompt)
@@ -82,7 +91,7 @@ class GptAnalyzer:
             model=self.model,
             input=prompt,
             temperature=0.2,
-            max_output_tokens=800,  # keep bounded
+            max_output_tokens=2000,  # keep bounded
             )
 
             # Use the SDK JSON mode output directly if supported
